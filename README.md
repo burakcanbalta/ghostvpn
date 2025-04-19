@@ -10,7 +10,7 @@
 
 ## 🧠 Açıklama
 
-GhostVPN; siber güvenlik, istihbarat, dark web anonimliği ve ileri düzey gizlilik için geliştirilmiş, **AI destekli, RAM-only, iz bırakmayan, kendi kendini koruyan** gelişmiş bir güvenlik & VPN sistemidir.
+GhostVPN; siber güvenlik, istihbarat, dark web anonimliği ve ileri düzey gizlilik için geliştirilmiş, **RAM-only, iz bırakmayan, kendi kendini koruyan** gelişmiş bir güvenlik & VPN sistemidir.
 
 Tüm sistem sadece `python ghostvpn_gui.py` komutu ile başlar ve:
 
