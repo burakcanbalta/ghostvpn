@@ -4,7 +4,7 @@
 ---
 
 ## 📌 Proje Adı
-**GhostVPN: AI Destekli Tam Anonimlik ve Saldırı Karşıtı Güvenlik Sistemi**
+**GhostVPN: Tam Anonimlik ve Saldırı Karşıtı Güvenlik Sistemi**
 
 ---
 
