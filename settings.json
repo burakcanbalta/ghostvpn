@@ -1,0 +1,14 @@
+{
+    "use_vpn": true,
+    "honeypot_active": true,
+    "web_panel_active": true,
+    "auto_mac_change": true,
+    "ram_only_mode": true,
+    "fake_traffic_active": true,
+    "ai_idle_simulation": true,
+    "vpn_config_encrypted": true,
+    "abuseipdb_check": true,
+    "realistic_mac": true,
+    "ghost_cloak": true,
+    "smartai_check": true
+}
