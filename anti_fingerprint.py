@@ -1,6 +1,7 @@
 import random
 import time
 import subprocess
+import platform
 
 class AntiFingerprint:
     def __init__(self):
@@ -30,10 +31,56 @@ class AntiFingerprint:
             
     def random_http_request(self):
         domains = ["example.com", "test.org", "dummy.net"]
-        subprocess.run(["curl", "-s", f"http://{random.choice(domains)}"], 
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            if platform.system() == "Windows":
+                subprocess.run(["curl", "-s", f"http://{random.choice(domains)}"], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+            else:
+                subprocess.run(["curl", "-s", f"http://{random.choice(domains)}"], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
         
     def random_dns_query(self):
         domains = ["google.com", "yahoo.com", "bing.com"]
-        subprocess.run(["dig", "+short", random.choice(domains)], 
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            if platform.system() == "Windows":
+                subprocess.run(["nslookup", random.choice(domains)], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=True)
+            else:
+                subprocess.run(["dig", "+short", random.choice(domains)], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        
+    def random_delay(self):
+        pass
+        
+    def random_mouse_movement(self):
+        try:
+            if platform.system() == "Windows":
+                import pyautogui
+                pyautogui.moveRel(random.randint(-10, 10), random.randint(-10, 10))
+            else:
+                subprocess.run(["xdotool", "mousemove_relative", "--", 
+                               str(random.randint(-10, 10)), str(random.randint(-10, 10))],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+        
+    def random_key_press(self):
+        try:
+            if platform.system() == "Windows":
+                import pyautogui
+                pyautogui.press('shift')
+            else:
+                subprocess.run(["xdotool", "key", "Shift_L"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception:
+            pass
+
+if __name__ == "__main__":
+    afp = AntiFingerprint()
+    afp.randomize_profile()
+    print(f"Seçilen profil: {afp.current_profile['name']}")
+    afp.generate_noise()
