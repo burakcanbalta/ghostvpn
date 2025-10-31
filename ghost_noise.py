@@ -1,8 +1,7 @@
-# core/ghost_noise.py
-
 import random
 import subprocess
 import time
+import platform
 from utils import logger
 
 def generate_fake_traffic():
@@ -10,7 +9,10 @@ def generate_fake_traffic():
     try:
         while True:
             target = random.choice(targets)
-            subprocess.call(["ping", "-c", "1", target])
+            if platform.system().lower() == "windows":
+                subprocess.run(["ping", "-n", "1", target], capture_output=True)
+            else:
+                subprocess.run(["ping", "-c", "1", target], capture_output=True)
             logger.log(f"Fake trafik gönderildi: ping {target}")
             time.sleep(random.randint(5, 15))
     except Exception as e:
