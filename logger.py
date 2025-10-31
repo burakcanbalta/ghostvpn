@@ -1,5 +1,3 @@
-# utils/logger.py
-
 from datetime import datetime
 
 def log(message):
@@ -7,7 +5,7 @@ def log(message):
     formatted = f"{timestamp} {message}"
     print(formatted)
     try:
-        with open("ghostvpn.log", "a") as f:
+        with open("ghostvpn.log", "a", encoding='utf-8') as f:
             f.write(formatted + "\n")
-    except:
+    except Exception:
         pass
