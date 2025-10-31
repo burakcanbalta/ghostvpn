@@ -1,7 +1,6 @@
-# core/mac_changer.py
-
 import random
 import subprocess
+import platform
 from utils import logger
 
 def generate_realistic_mac():
@@ -14,9 +13,15 @@ def generate_realistic_mac():
 def change_mac(interface, use_realistic=True):
     new_mac = generate_realistic_mac()
     try:
-        subprocess.call(["ifconfig", interface, "down"])
-        subprocess.call(["ifconfig", interface, "hw", "ether", new_mac])
-        subprocess.call(["ifconfig", interface, "up"])
+        if platform.system().lower() == "linux":
+            subprocess.run(["ip", "link", "set", "dev", interface, "down"], check=False)
+            subprocess.run(["ip", "link", "set", "dev", interface, "address", new_mac], check=False)
+            subprocess.run(["ip", "link", "set", "dev", interface, "up"], check=False)
+        else:
+            subprocess.run(["ifconfig", interface, "down"], check=False)
+            subprocess.run(["ifconfig", interface, "hw", "ether", new_mac], check=False)
+            subprocess.run(["ifconfig", interface, "up"], check=False)
+            
         logger.log(f"{interface} için MAC adresi değiştirildi: {new_mac}")
         return new_mac
     except Exception as e:
