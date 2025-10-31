@@ -1,5 +1,3 @@
-# web_panel.py
-
 from flask import Flask, jsonify
 import json
 
@@ -15,4 +13,4 @@ def status():
         return jsonify({"error": "Status dosyası bulunamadı."})
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(host='0.0.0.0', port=5000)
