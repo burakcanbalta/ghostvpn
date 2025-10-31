@@ -1,34 +1,45 @@
-# GHOSTVPN.PY - Tüm sistemin tek dosyada birleşmiş sürümü
-# Bu dosya cleaner, proxy, tor, vpn, config_manager, anti_fingerprint, dark_ghost gibi tüm parçaları içerir.
-# Çalıştırmak için: python3 ghostvpn_allinone.py
-
-
-
-
-# cleaner.py
-============================================================
+import os
 import subprocess
+import socket
+import threading
+import time
+import random
+import json
+import platform
+from datetime import datetime
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+import hashlib
+
+def log(message):
+    timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    line = f"{timestamp} {message}"
+    print(line)
+    try:
+        with open("ghostvpn.log", "a") as f:
+            f.write(line + "\n")
+    except:
+        pass
 
 def clean_disconnect():
     try:
         print("[+] Cleaning system: Stopping VPN, Proxy, and Tor services...")
-        subprocess.call(["sudo", "killall", "openvpn"])
-        subprocess.call(["sudo", "systemctl", "stop", "tor"])
-        subprocess.call(["sudo", "pkill", "-f", "proxy_server.py"])
+        subprocess.run(["pkill", "openvpn"], check=False)
+        subprocess.run(["systemctl", "stop", "tor"], check=False)
+        subprocess.run(["pkill", "-f", "proxy_server.py"], check=False)
         print("[+] Services stopped.")
-        subprocess.call(["sudo", "systemd-resolve", "--flush-caches"])
+        
+        if platform.system().lower() == "linux":
+            try:
+                subprocess.run(["systemd-resolve", "--flush-caches"], check=False)
+            except:
+                subprocess.run(["resolvectl", "flush-caches"], check=False)
+        elif platform.system().lower() == "windows":
+            subprocess.run(["ipconfig", "/flushdns"], check=False, shell=True)
+            
         print("[+] DNS cache flushed.")
     except Exception as e:
         print(f"[!] Error during cleanup: {str(e)}")
-
-if __name__ == "__main__":
-    clean_disconnect()
-
-
-# proxy_server.py
-============================================================
-import socket
-import threading
 
 def handle_client(client_socket):
     try:
@@ -67,24 +78,22 @@ def forward(source, destination):
         destination.close()
 
 def start_socks5_server(listen_ip='127.0.0.1', listen_port=1080):
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind((listen_ip, listen_port))
-    server.listen(5)
-    print(f"[+] SOCKS5 proxy server started on {listen_ip}:{listen_port}")
-    while True:
-        client_socket, addr = server.accept()
-        threading.Thread(target=handle_client, args=(client_socket,)).start()
-
-
-# tor_controller.py
-============================================================
-import subprocess
-import time
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((listen_ip, listen_port))
+        server.listen(5)
+        print(f"[+] SOCKS5 proxy server started on {listen_ip}:{listen_port}")
+        while True:
+            client_socket, addr = server.accept()
+            threading.Thread(target=handle_client, args=(client_socket,)).start()
+    except Exception as e:
+        print(f"Proxy server error: {e}")
 
 def start_tor_service():
     try:
         print("[+] Starting Tor service...")
-        subprocess.call(["sudo", "systemctl", "start", "tor"])
+        subprocess.run(["systemctl", "start", "tor"], check=False)
         time.sleep(5)
         print("[+] Tor service started.")
     except Exception as e:
@@ -93,42 +102,30 @@ def start_tor_service():
 def stop_tor_service():
     try:
         print("[+] Stopping Tor service...")
-        subprocess.call(["sudo", "systemctl", "stop", "tor"])
+        subprocess.run(["systemctl", "stop", "tor"], check=False)
         print("[+] Tor service stopped.")
     except Exception as e:
         print(f"[!] Failed to stop Tor service: {str(e)}")
 
-
-# vpn_connector.py
-============================================================
-import subprocess
-import time
-
 def connect_vpn(config_path):
     try:
         print(f"[+] Connecting to VPN using {config_path}...")
-        subprocess.Popen(["sudo", "openvpn", "--config", config_path])
-        time.sleep(5)
-        print("[+] VPN connection initiated.")
+        if os.path.exists(config_path):
+            subprocess.Popen(["openvpn", "--config", config_path])
+            time.sleep(5)
+            print("[+] VPN connection initiated.")
+        else:
+            print(f"[!] VPN config file not found: {config_path}")
     except Exception as e:
         print(f"[!] Failed to connect VPN: {str(e)}")
 
 def disconnect_vpn():
     try:
         print("[+] Disconnecting VPN...")
-        subprocess.call(["sudo", "killall", "openvpn"])
+        subprocess.run(["pkill", "openvpn"], check=False)
         print("[+] VPN disconnected.")
     except Exception as e:
         print(f"[!] Failed to disconnect VPN: {str(e)}")
-
-
-# config_manager.py
-============================================================
-import os
-import json
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-import hashlib
 
 class ConfigManager:
     def __init__(self):
@@ -137,34 +134,47 @@ class ConfigManager:
         self.key = hashlib.sha256(b'ghostvpn-master-key').digest()
         
     def encrypt_config(self, data, filename):
-        cipher = AES.new(self.key, AES.MODE_CBC)
-        ct_bytes = cipher.encrypt(pad(data.encode(), AES.block_size))
-        with open(filename, 'wb') as f:
-            f.write(cipher.iv)
-            f.write(ct_bytes)
+        try:
+            cipher = AES.new(self.key, AES.MODE_CBC)
+            ct_bytes = cipher.encrypt(pad(data.encode('utf-8'), AES.block_size))
+            with open(filename, 'wb') as f:
+                f.write(cipher.iv)
+                f.write(ct_bytes)
+            return True
+        except Exception as e:
+            print(f"Encryption error: {e}")
+            return False
             
     def decrypt_config(self, filename):
-        with open(filename, 'rb') as f:
-            iv = f.read(16)
-            ct = f.read()
-        cipher = AES.new(self.key, AES.MODE_CBC, iv=iv)
-        pt = unpad(cipher.decrypt(ct), AES.block_size)
-        return pt.decode()
+        try:
+            with open(filename, 'rb') as f:
+                iv = f.read(16)
+                ct = f.read()
+            cipher = AES.new(self.key, AES.MODE_CBC, iv=iv)
+            pt = unpad(cipher.decrypt(ct), AES.block_size)
+            return pt.decode('utf-8')
+        except Exception as e:
+            print(f"Decryption error: {e}")
+            return None
     
     def secure_delete(self, path, passes=3):
-        with open(path, 'ba+') as f:
-            length = f.tell()
-            for _ in range(passes):
-                f.seek(0)
-                f.write(os.urandom(length))
-        os.remove(path)
-
-
-# anti_fingerprint.py
-============================================================
-import random
-import time
-import subprocess
+        try:
+            if not os.path.exists(path):
+                return
+            with open(path, 'rb+') as f:
+                length = os.path.getsize(path)
+                for _ in range(passes):
+                    f.seek(0)
+                    f.write(os.urandom(length))
+                    f.flush()
+                    os.fsync(f.fileno())
+            os.remove(path)
+        except Exception as e:
+            print(f"Secure delete error: {e}")
+            try:
+                os.remove(path)
+            except:
+                pass
 
 class AntiFingerprint:
     def __init__(self):
@@ -194,81 +204,84 @@ class AntiFingerprint:
             
     def random_http_request(self):
         domains = ["example.com", "test.org", "dummy.net"]
-        subprocess.run(["curl", "-s", f"http://{random.choice(domains)}"], 
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            subprocess.run(["curl", "-s", f"http://{random.choice(domains)}"], 
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except:
+            pass
         
     def random_dns_query(self):
         domains = ["google.com", "yahoo.com", "bing.com"]
-        subprocess.run(["dig", "+short", random.choice(domains)], 
-                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
-# dark_ghost.py
-============================================================
-import subprocess
-from ram_system import RamSystem
-from ghost_kill import GhostKill
-
-class DarkGhost:
-    def __init__(self):
-        self.ram_system = RamSystem()
-        self.ghost_kill = GhostKill()
-        
-    def activate(self):
-        print("🔒 DarkGhost Mode Activating...")
-        
-        # 1. Tüm gereksiz servisleri kapat
-        self.ghost_kill.kill_processes()
-        
-        # 2. RAM'e geç
-        self.ram_system.move_to_ram("/etc/ghostvpn/config.ovpn")
-        
-        # 3. Swap ve cache temizle
-        self.ram_system.disable_swap()
-        self.ram_system.clear_ram()
-        
-        # 4. JavaScriptsiz tarayıcı başlat
-        self.start_secure_browser()
-        
-        # 5. Tor + VPN zinciri
-        self.start_tor_vpn_chain()
-        
-        print("🕶️ DarkGhost Mode Active - You are now invisible")
-        
-    def start_secure_browser(self):
-        subprocess.Popen([
-            'firefox', 
-            '--private-window',
-            '--disable-javascript',
-            '--no-remote',
-            'about:blank'
-        ])
-        
-    def start_tor_vpn_chain(self):
-        subprocess.Popen([
-            'sudo', 'openvpn',
-            '--config', '/dev/shm/ghostvpn/config.ovpn',
-            '--route-nopull',
-            '--route-up', 'torify'
-        ])
-
-
-# ================= LOGGER ====================
-import os
-from datetime import datetime
-
-def log(message):
-    timestamp = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
-    line = f"{timestamp} {message}"
-    print(line)
-    try:
-        with open("ghostvpn.log", "a") as f:
-            f.write(line + "\n")
-    except:
+        try:
+            if platform.system().lower() == "windows":
+                subprocess.run(["nslookup", random.choice(domains)], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, shell=True)
+            else:
+                subprocess.run(["dig", "+short", random.choice(domains)], 
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except:
+            pass
+    
+    def random_delay(self):
         pass
+        
+    def random_mouse_movement(self):
+        try:
+            if platform.system().lower() == "windows":
+                import pyautogui
+                pyautogui.moveRel(random.randint(-10, 10), random.randint(-10, 10))
+            else:
+                subprocess.run(["xdotool", "mousemove_relative", "--", 
+                               str(random.randint(-10, 10)), str(random.randint(-10, 10))],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except:
+            pass
+        
+    def random_key_press(self):
+        try:
+            if platform.system().lower() == "windows":
+                import pyautogui
+                pyautogui.press('shift')
+            else:
+                subprocess.run(["xdotool", "key", "Shift_L"],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+        except:
+            pass
 
+def ghost_kill():
+    log("[!] GhostKill devreye girdi: sistem imha ediliyor...")
+    try:
+        subprocess.run(["pkill", "openvpn"], check=False)
+        log("OpenVPN süreci durduruldu.")
+        subprocess.run(["systemctl", "stop", "tor"], check=False)
+        log("Tor servisi durduruldu.")
+        subprocess.run(["swapoff", "-a"], check=False)
+        log("Swap alanı devre dışı bırakıldı.")
+        
+        script_path = os.path.abspath(__file__)
+        if os.path.exists(script_path):
+            os.remove(script_path)
+            log("GhostKill dosyası kendini sildi.")
+    except Exception as e:
+        log(f"GhostKill sırasında hata: {e}")
+    finally:
+        log("Sistem sonlandırılıyor.")
+        os._exit(1)
 
-# ================= CLI MENU ====================
+def generate_fake_traffic():
+    targets = ["1.1.1.1", "google.com", "yahoo.com"]
+    try:
+        while True:
+            target = random.choice(targets)
+            if platform.system().lower() == "windows":
+                subprocess.run(["ping", "-n", "1", target], capture_output=True, check=False)
+            else:
+                subprocess.run(["ping", "-c", "1", target], capture_output=True, check=False)
+            log(f"Fake trafik gönderildi: ping {target}")
+            time.sleep(random.randint(5, 15))
+    except Exception as e:
+        log(f"Fake trafik üretimi hatası: {e}")
+
 def run_cli():
     while True:
         print("""
@@ -283,52 +296,37 @@ def run_cli():
 [0] Çıkış
 ===============================
 """)
-        choice = input("Seçim: ")
-        if choice == "1":
-            connect_vpn()
-        elif choice == "2":
-            start_tor()
-        elif choice == "3":
-            start_proxy_server()
-        elif choice == "4":
-            generate_fake_traffic()
-        elif choice == "5":
-            ghost_kill()
-        elif choice == "0":
-            print("Çıkılıyor...")
+        try:
+            choice = input("Seçim: ")
+            if choice == "1":
+                config_path = input("VPN config dosya yolu: ").strip()
+                if config_path and os.path.exists(config_path):
+                    connect_vpn(config_path)
+                else:
+                    print("Geçersiz config dosyası!")
+            elif choice == "2":
+                start_tor_service()
+            elif choice == "3":
+                threading.Thread(target=start_socks5_server, daemon=True).start()
+                print("SOCKS5 proxy başlatıldı...")
+            elif choice == "4":
+                threading.Thread(target=generate_fake_traffic, daemon=True).start()
+                print("AI sahte trafik başlatıldı...")
+            elif choice == "5":
+                confirm = input("Emin misiniz? (e/h): ").lower()
+                if confirm == 'e':
+                    ghost_kill()
+            elif choice == "0":
+                print("Çıkılıyor...")
+                break
+            else:
+                print("Geçersiz seçim!")
+        except KeyboardInterrupt:
+            print("\nProgram kapatılıyor...")
             break
-        else:
-            print("Geçersiz seçim!")
+        except Exception as e:
+            print(f"Hata: {e}")
 
-
-# ================= WEB DASHBOARD ====================
-from flask import Flask, jsonify
-
-app = Flask(__name__)
-
-@app.route('/status')
-def status():
-    try:
-        import socket
-        ip = socket.gethostbyname(socket.gethostname())
-    except:
-        ip = "Bilinmiyor"
-    return jsonify({
-        "status": "Aktif",
-        "ip": ip,
-        "tor": "Açık",
-        "vpn": "Açık",
-        "socks_proxy": "127.0.0.1:1080",
-        "log": "ghostvpn.log"
-    })
-
-def start_dashboard():
-    import threading
-    threading.Thread(target=lambda: app.run(port=5000), daemon=True).start()
-
-
-# ================= MAIN ====================
 if __name__ == "__main__":
     log("GhostVPN başlatıldı.")
-    start_dashboard()
     run_cli()
