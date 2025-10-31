@@ -1,5 +1,3 @@
-# core/smartai.py
-
 import psutil
 from utils import logger
 from core.ghost_kill import ghost_kill
