@@ -1,5 +1,3 @@
-# cli_menu.py
-
 from utils import logger
 from core import mac_changer, ghost_kill, ghost_noise, ghost_trap, smartai
 import threading
@@ -20,22 +18,49 @@ def run_cli():
 [0] Çıkış
 ===============================
 """)
-        choice = input("Seçim yapınız: ")
-        if choice == "1":
-            mac_changer.change_mac("eth0", use_realistic=True)
-        elif choice == "2":
-            threading.Thread(target=ghost_noise.generate_fake_traffic, daemon=True).start()
-        elif choice == "3":
-            ghost_trap.start_honeypot()
-        elif choice == "4":
-            ghost_trap.monitor_for_attackers()
-        elif choice == "5":
-            smartai.check_sandbox_conditions()
-        elif choice == "6":
-            ghost_kill.ghost_kill()
-        elif choice == "0":
-            print("Çıkılıyor...")
+        try:
+            choice = input("Seçim yapınız: ")
+            
+            if choice == "1":
+                interface = input("Ağ arayüzü giriniz (örn: eth0, wlan0): ").strip()
+                if interface:
+                    mac_changer.change_mac(interface, use_realistic=True)
+                else:
+                    print("Geçersiz ağ arayüzü!")
+                    
+            elif choice == "2":
+                thread = threading.Thread(target=ghost_noise.generate_fake_traffic, daemon=True)
+                thread.start()
+                print("Fake trafik başlatıldı...")
+                
+            elif choice == "3":
+                thread = threading.Thread(target=ghost_trap.start_honeypot, daemon=True)
+                thread.start()
+                print("Honeypot başlatıldı...")
+                
+            elif choice == "4":
+                ghost_trap.monitor_for_attackers()
+                
+            elif choice == "5":
+                smartai.check_sandbox_conditions()
+                
+            elif choice == "6":
+                confirm = input("Emin misiniz? (e/h): ").lower()
+                if confirm == 'e':
+                    ghost_kill.ghost_kill()
+                    break
+                    
+            elif choice == "0":
+                print("Çıkılıyor...")
+                break
+                
+            else:
+                print("Geçersiz seçim!")
+                
+        except KeyboardInterrupt:
+            print("\nProgram kapatılıyor...")
             break
-        else:
-            print("Geçersiz seçim!")
+        except Exception as e:
+            print(f"Hata oluştu: {e}")
+            
         time.sleep(1)
