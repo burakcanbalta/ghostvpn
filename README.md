@@ -92,16 +92,6 @@ sudo python3 ghostvpn_ultra.py
 - Access dashboard at `localhost:5000/status`
 - Logs are saved in `ghostvpn.log` unless disabled
 
----
-
-## ⚠️ Legal Notice
-
-> This tool is provided for **educational and authorized red team use only**.  
-> Any misuse or unauthorized deployment is strictly prohibited and may violate local or international laws.  
-> Use responsibly and only in controlled environments.
-
----
-
 ## 📂 Repository Structure
 
 ```bash
